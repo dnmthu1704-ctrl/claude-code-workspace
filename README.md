@@ -1,6 +1,6 @@
 # Claude Code Workspace — Đặng Ngọc Minh Thư
 
-Không gian làm việc cá nhân với Claude Code, xây dựng cho công việc SEO tại SEONGON.
+Không gian làm việc cá nhân với Claude Code, xây dựng cho công việc Account PM tại SEONGON.
 
 ## Cấu trúc
 
@@ -13,6 +13,6 @@ Không gian làm việc cá nhân với Claude Code, xây dựng cho công việ
 
 | Skill | Mô tả | Kết nối ngoài |
 |-------|-------|---------------|
-| seo-report | Tạo báo cáo SEO từ dữ liệu Google Search Console | Google Sheets API |
-| content-writer | Viết bài SEO hàng loạt từ danh sách keyword | — |
-| keyword-cluster | Gom nhóm keyword từ file Excel | CLI (xlsx) |
+| send-email-report | Tạo và gửi email báo cáo SEO tháng cho client | Gmail API |
+| monthly-report | Nhận data từ file Excel → tạo báo cáo SEO tháng dạng .docx | — |
+| meeting-notes | Format ghi chú thô → biên bản họp chuẩn có task, PIC, deadline | — |

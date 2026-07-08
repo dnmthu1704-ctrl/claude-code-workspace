@@ -44,21 +44,26 @@ def load_config():
     return cfg
 
 
-def compose_email(client, month, highlights, sender_name):
+def compose_email(client, month, highlights, sender_name, link=""):
     """Soạn nội dung email báo cáo SEO."""
     hl_lines = ""
     if highlights:
         items = [h.strip() for h in highlights.split("|") if h.strip()]
         hl_lines = "\n".join(f"  ✓ {item}" for item in items)
 
+    if link:
+        detail_line = f"Chi tiết đầy đủ tại: {link}\n\nAnh/Chị vui lòng xem và phản hồi nếu có câu hỏi."
+    else:
+        detail_line = "Chi tiết đầy đủ được đính kèm trong file báo cáo. Anh/Chị vui lòng xem và phản hồi nếu có câu hỏi."
+
     body = f"""Kính gửi Anh/Chị {client},
 
 Đây là báo cáo SEO tháng {month} từ đội ngũ {sender_name}.
 
 📊 KẾT QUẢ NỔI BẬT THÁNG {month}:
-{hl_lines if hl_lines else "  (Xem chi tiết trong file đính kèm)"}
+{hl_lines if hl_lines else "  (Xem chi tiết trong link/file báo cáo)"}
 
-Chi tiết đầy đủ được đính kèm trong file báo cáo. Anh/Chị vui lòng xem và phản hồi nếu có câu hỏi.
+{detail_line}
 
 Chúng tôi sẽ tiếp tục triển khai các kế hoạch đã đề ra trong tháng tới để duy trì và cải thiện kết quả.
 
@@ -130,6 +135,7 @@ def main():
     ap.add_argument("--client", required=True, help="Tên client")
     ap.add_argument("--month", required=True, help="Tháng báo cáo (vd: 07/2026)")
     ap.add_argument("--attach", default="", help="Đường dẫn file báo cáo đính kèm")
+    ap.add_argument("--link", default="", help="Link báo cáo online (vd: Google Slides), dùng khi không có file đính kèm")
     ap.add_argument("--highlights", default="", help="Highlights tháng, ngăn cách bằng | ")
     ap.add_argument("--cc", default="", help="Email CC (nếu có)")
     ap.add_argument("--draft-only", action="store_true", help="Chỉ tạo bản nháp, không gửi")
@@ -140,7 +146,7 @@ def main():
     cc = args.cc or cfg.get("cc", "")
 
     print(f"[i] Soạn email gửi đến: {args.to}")
-    subject, body = compose_email(args.client, args.month, args.highlights, sender_name)
+    subject, body = compose_email(args.client, args.month, args.highlights, sender_name, args.link)
 
     # Hiển thị nội dung email
     print("\n" + "=" * 55)

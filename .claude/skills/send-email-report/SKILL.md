@@ -29,17 +29,20 @@ Hỏi user:
 > 1. Email client (người nhận)
 > 2. Tên client
 > 3. Tháng báo cáo
-> 4. File báo cáo đính kèm (.docx hoặc .pdf)
+> 4. Báo cáo là **file đính kèm** (.docx/.pdf) hay **link online** (vd: Google Slides từ skill `monthly-report`)?
 > 5. 2-3 highlights chính muốn nhắc trong email (KPI đạt được, điểm nổi bật)
 
 ## Bước 2 — Chạy script
+
+Nếu báo cáo là file đính kèm, dùng `--attach`. Nếu là link (Google Slides/Docs), dùng `--link` — script sẽ tự đổi câu "đính kèm trong file báo cáo" thành "Chi tiết đầy đủ tại: `<link>`" cho khớp với thực tế.
 
 ```
 python3 ~/.claude/skills/send-email-report/send_email.py \
   --to "<email_client>" \
   --client "<tên client>" \
   --month "<tháng>" \
-  --attach "<đường dẫn file báo cáo>" \
+  --link "<link Google Slides, nếu có>" \
+  --attach "<đường dẫn file báo cáo, nếu có>" \
   --highlights "<highlight 1>|<highlight 2>|<highlight 3>" \
   --draft-only
 ```
@@ -63,7 +66,8 @@ python3 ~/.claude/skills/send-email-report/send_email.py \
   --to "<email_client>" \
   --client "<tên client>" \
   --month "<tháng>" \
-  --attach "<đường dẫn file báo cáo>" \
+  --link "<link Google Slides, nếu có>" \
+  --attach "<đường dẫn file báo cáo, nếu có>" \
   --highlights "<highlight 1>|<highlight 2>|<highlight 3>"
 ```
 

@@ -40,7 +40,7 @@ Giao 1 nhiệm vụ lớn cho Claude Code (vd: *"Tạo báo cáo SEO tháng 07 c
 ## Cài đặt
 
 ```bash
-pip3 install python-docx openpyxl pandas google-api-python-client google-auth-httplib2 google-auth-oauthlib
+pip3 install python-docx openpyxl pandas google-api-python-client google-auth-httplib2 google-auth-oauthlib matplotlib
 ```
 
 ## Setup kết nối ngoài

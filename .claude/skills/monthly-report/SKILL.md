@@ -46,7 +46,9 @@ python3 /Users/dnmthw/Downloads/claude-code-workspace/.claude/skills/monthly-rep
 Script sẽ:
 1. Đọc file data → tính toán chỉ số
 2. Tạo Google Slides presentation qua API
-3. Điền nội dung vào từng slide theo thứ tự mục
+3. Điền nội dung vào từng slide theo thứ tự mục — riêng phần **Ranking** và **Traffic**
+   sẽ có thêm 1 slide bảng thật (Google Slides table) và 1 slide biểu đồ (pie/bar chart,
+   vẽ bằng matplotlib rồi chèn dưới dạng ảnh), bên cạnh slide tóm tắt bullet
 4. Trả về link Google Slides
 
 ## Bước 4 — Trả kết quả
@@ -55,10 +57,15 @@ Script sẽ:
 > Link Google Slides: [link]
 > Gồm: X slides, Y từ khóa Top 10, traffic Z clicks
 
+## Lưu ý về ảnh chart
+
+Ảnh pie/bar chart được tạo tạm ở `/tmp`, upload lên Google Drive rồi **set quyền "Anyone with the link can view"** để Google Slides nhúng được — đây là điều kiện bắt buộc của Slides API (`createImage` cần URL công khai). File ảnh trên Drive không chứa gì ngoài chính biểu đồ, nhưng nếu cần giữ private tuyệt đối, hãy cân nhắc trước khi dùng.
+
 ## Lỗi thường gặp
 
 | Lỗi | Cách xử lý |
 |-----|------------|
-| `ModuleNotFoundError` | `pip3 install openpyxl pandas google-api-python-client` |
+| `ModuleNotFoundError` | `pip3 install openpyxl pandas google-api-python-client matplotlib` |
 | Slides API chưa bật | Vào console.cloud.google.com → Enable Google Slides API |
 | Token hết hạn | Xoá token.json, chạy lại để re-auth |
+| Ảnh chart không hiện trên slide | Kiểm tra quyền chia sẻ file ảnh trên Drive (phải là "Anyone with the link") |

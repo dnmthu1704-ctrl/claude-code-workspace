@@ -101,6 +101,67 @@ Trả về JSON với cấu trúc:
     return None
 
 
+# Từ khoá báo hiệu phần "deadline" khi dòng không có ngày tháng dạng d/m
+# (vd: "... cho đến khi hết điểm chuẩn"). Xếp theo thứ tự dài -> ngắn để
+# regex khớp đúng cụm dài nhất trước.
+_DEADLINE_KEYWORDS = [
+    "cho đến khi", "đến khi", "tới khi", "trước khi",
+    "cho đến", "trước ngày", "trong tuần", "trong tháng",
+    "tới", "hết", "đến",
+]
+_DEADLINE_KEYWORD_PATTERN = "|".join(re.escape(k) for k in _DEADLINE_KEYWORDS)
+
+
+def split_pic_deadline(suffix):
+    """Tách PIC + deadline từ phần văn bản sau dấu '-' cuối cùng của 1 dòng next step.
+
+    Không hardcode danh sách tên — nhận diện qua vị trí ngày tháng hoặc từ khoá
+    deadline, phần còn lại (thường ngắn) được coi là PIC.
+    """
+    suffix = suffix.strip(" ,.-–")
+    if not suffix:
+        return "Chưa xác định", "Chưa xác định"
+
+    date_match = re.search(r"\d{1,2}/\d{1,2}(?:/\d{2,4})?", suffix)
+    if date_match:
+        pic = suffix[: date_match.start()].strip(" ,.-–")
+        return (pic or "Chưa xác định"), date_match.group()
+
+    kw_match = re.search(_DEADLINE_KEYWORD_PATTERN, suffix, re.I)
+    if kw_match:
+        pic = suffix[: kw_match.start()].strip(" ,.-–")
+        deadline = suffix[kw_match.start():].strip(" ,.-–")
+        return (pic or "Chưa xác định"), (deadline or "Chưa xác định")
+
+    return suffix, "Chưa xác định"
+
+
+def looks_like_action_line(line):
+    """Nhận diện 1 dòng có phải next step hay không, dựa trên phần sau dấu '-' cuối cùng.
+
+    Dùng khi recap không có tiêu đề "Next step:" tường minh (trường hợp phổ biến
+    với recap dạng liệt kê thẳng task, vd copy từ Slack/Zalo).
+    """
+    parts = re.split(r"[-–]", line)
+    if len(parts) < 2:
+        return False
+    suffix = parts[-1].strip()
+    if not suffix:
+        return False
+    has_date = bool(re.search(r"\d{1,2}/\d{1,2}", suffix))
+    has_keyword = bool(re.search(_DEADLINE_KEYWORD_PATTERN, suffix, re.I))
+    short_enough = len(suffix.split()) <= 5
+    return has_date or has_keyword or short_enough
+
+
+def split_task_and_pic(line):
+    """Tách task (trước dấu '-' cuối) và PIC/deadline (sau dấu '-' cuối) của 1 dòng."""
+    idx = max(line.rfind("-"), line.rfind("–"))
+    task = line[:idx].strip(" ,.-–")
+    pic, deadline = split_pic_deadline(line[idx + 1:])
+    return task, pic, deadline
+
+
 def parse_basic(notes):
     """Parser cơ bản khi không có API key."""
     sections = []
@@ -114,6 +175,12 @@ def parse_basic(notes):
     }
 
     lines = [l.strip() for l in notes.split("\n") if l.strip()]
+    # Nếu recap có tiêu đề "Next step:" tường minh, chỉ coi các dòng SAU tiêu đề
+    # đó là next step (giữ hành vi cũ). Nếu không có, tự nhận diện từng dòng
+    # bằng looks_like_action_line() — tránh việc cả recap "mất trắng" next steps
+    # chỉ vì thiếu đúng cụm từ "next step".
+    has_explicit_header = any(re.search(r"next\s*step", clean_text(l), re.I) for l in lines)
+
     current_section = "Chung"
     section_map = {current_section: []}
 
@@ -127,16 +194,14 @@ def parse_basic(notes):
             in_next = True
             continue
 
-        if in_next:
-            if line_clean and len(line_clean) > 5 and line_clean not in ["=="]:
-                deadline_match = re.search(r"(\d{1,2}/\d{1,2})", line_clean)
-                deadline = deadline_match.group(1) + "/2026" if deadline_match else "Chưa xác định"
-                pic_match = re.search(r"[-–]\s*(Thư|Huyền|Thắng|Ngân|Duyên|Kỹ thuật|PM)[\s,]", line_clean)
-                pic = pic_match.group(1).strip() if pic_match else "Chưa xác định"
-                task = re.sub(r"\s*[-–]\s*(Thư|Huyền|Thắng|Ngân|Duyên|Kỹ thuật|PM).*$", "", line_clean).strip()
-                task = re.sub(r"\d{1,2}/\d{1,2}.*$", "", task).strip(" -–")
-                if task and len(task) > 5:
-                    next_steps.append({"task": task, "pic": pic, "deadline": deadline})
+        is_next_step_line = in_next or (
+            not has_explicit_header and looks_like_action_line(line_clean)
+        )
+
+        if is_next_step_line:
+            task, pic, deadline = split_task_and_pic(line_clean)
+            if task and len(task) > 5:
+                next_steps.append({"task": task, "pic": pic, "deadline": deadline})
             continue
 
         matched = False
@@ -148,11 +213,10 @@ def parse_basic(notes):
                 matched = True
                 break
 
-        if line_clean not in ["=="]:
-            section_map.setdefault(current_section, []).append(line_clean)
+        section_map.setdefault(current_section, []).append(line_clean)
 
     for title, points in section_map.items():
-        filtered = [p for p in points if len(p) > 10 and p not in ["=="]]
+        filtered = [p for p in points if len(p) > 10]
         if filtered:
             sections.append({"title": title, "points": filtered})
 

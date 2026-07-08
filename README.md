@@ -6,14 +6,27 @@ Không gian làm việc cá nhân với Claude Code, xây dựng cho công việ
 
 ```
 .claude/
+  agents/
+    report-agent.md          # Chu kỳ báo cáo tháng: monthly-report + send-email-report
+    meeting-agent.md         # Chu kỳ sau họp: meeting-notes + send-email-meeting
   skills/
-    meeting-notes/          # Format recap họp → Google Docs
-    monthly-report/         # Tạo báo cáo SEO tháng → Google Slides
-    send-email-report/      # Soạn + gửi email báo cáo qua Gmail
+    meeting-notes/           # Format recap họp → Google Docs
+    monthly-report/          # Tạo báo cáo SEO tháng → Google Slides
+    send-email-report/       # Soạn + gửi email báo cáo tháng qua Gmail
+    send-email-meeting/      # Soạn + gửi email biên bản họp qua Gmail
 outputs/                    # File output từ việc chạy skills
 chat-history/               # Lịch sử trò chuyện với Claude Code
 drive_upload.py             # Tiện ích upload file lên Google Drive
 ```
+
+## Agents
+
+| Agent | Vai trò | Skills sử dụng |
+|-------|---------|-----------------|
+| `report-agent` | Tạo + gửi báo cáo SEO tháng cho client (end-to-end) | `monthly-report`, `send-email-report` |
+| `meeting-agent` | Hệ thống hoá + gửi biên bản họp cho client (end-to-end) | `meeting-notes`, `send-email-meeting` |
+
+Giao 1 nhiệm vụ lớn cho Claude Code (vd: *"Tạo báo cáo SEO tháng 07 cho TMA Solutions và gửi cho client"* hoặc *"Hệ thống hoá recap họp hôm nay và gửi cho khách"*), Claude Code sẽ tự nhận việc thuộc agent nào và chạy đủ 2 skill của agent đó theo thứ tự (tạo nội dung → soạn & gửi email), không cần chỉ định thủ công từng bước.
 
 ## SKILLs
 
@@ -21,7 +34,8 @@ drive_upload.py             # Tiện ích upload file lên Google Drive
 |-------|-------|---------------|--------|
 | `/meeting-notes` | Nhận recap thô → hệ thống hoá → Google Docs (2 phần: Nội dung trao đổi + Next steps) | Google Drive API | Google Docs |
 | `/monthly-report` | Nhận file data SEO + config dự án → tạo slide báo cáo tháng | Google Slides API | Google Slides |
-| `/send-email-report` | Soạn và gửi email báo cáo cho client kèm chữ ký | Gmail SMTP + App Password | Email + .txt draft |
+| `/send-email-report` | Soạn và gửi email báo cáo SEO tháng cho client kèm chữ ký | Gmail SMTP + App Password | Email + .txt draft |
+| `/send-email-meeting` | Soạn và gửi email biên bản họp cho client (3 mẫu: chuẩn / ngắn gọn / nhấn mạnh action items) | Gmail SMTP + App Password (dùng chung với send-email-report) | Email + .txt draft |
 
 ## Cài đặt
 

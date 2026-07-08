@@ -1,280 +1,282 @@
 #!/usr/bin/env python3
 """
-meeting-notes/format_notes.py
-Nhận ghi chú thô → tạo biên bản họp chuẩn → xuất file .docx
-
-Cách dùng:
-    python3 format_notes.py --client "TMA Solutions" --date "07-07-2026" \
-        --attendees "Minh Thư (PM), Anh Khoa (SEO)" \
-        --notes "bàn content tháng 7, Thư làm brief deadline 10/7..." \
-        --out outputs/bien-ban-hop-TMA-07-07-2026.docx
+format_notes.py — Chuyển recap họp thô → .docx chuẩn 2 phần:
+  1. Nội dung trao đổi (theo mảng, viết lại chuyên nghiệp)
+  2. Next steps (công việc | PIC | Deadline)
 """
 
 import argparse
 import json
 import os
-import sys
 import re
-import urllib.request
-import urllib.error
+import sys
 from datetime import datetime
+
+try:
+    from docx import Document
+    from docx.shared import Pt, RGBColor
+    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+except ImportError:
+    sys.exit("[x] Thiếu thư viện: pip3 install python-docx")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(HERE, "config.json")
 
 
 def load_config():
-    cfg = {"anthropic_api_key": os.environ.get("ANTHROPIC_API_KEY", "")}
+    cfg = {"anthropic_api_key": "", "company": "SEONGON"}
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r", encoding="utf-8") as f:
             cfg.update(json.load(f))
     return cfg
 
 
-def call_claude(prompt, api_key):
-    """Gọi Claude API để phân tích và format ghi chú."""
-    payload = {
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 2048,
-        "messages": [{"role": "user", "content": prompt}],
-    }
-    req = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Content-Type": "application/json",
-            "x-api-key": api_key,
-            "anthropic-version": "2023-06-01",
-        },
+def clean_text(text):
+    """Bỏ @mention, emoji trang trí, dấu thừa."""
+    text = re.sub(r"@\S+", "", text)
+    emoji_pattern = re.compile(
+        "[\U0001F300-\U0001F9FF\U00002702-\U000027B0\U0001F1E0-\U0001F1FF]+", flags=re.UNICODE
     )
+    text = emoji_pattern.sub("", text)
+    text = re.sub(r"\s{2,}", " ", text).strip()
+    return text
+
+
+def parse_with_ai(notes, client, date, attendees, api_key):
+    """Dùng Claude API để phân tích và viết lại recap."""
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            data = json.loads(r.read().decode("utf-8"))
-            return data["content"][0]["text"]
-    except urllib.error.HTTPError as e:
-        body = e.read().decode("utf-8", "replace")
-        raise SystemExit(f"[x] Claude API lỗi {e.code}: {body[:300]}")
-    except urllib.error.URLError as e:
-        raise SystemExit(f"[x] Lỗi mạng: {e.reason}")
+        import anthropic
+    except ImportError:
+        return None
 
+    prompt = f"""Bạn là trợ lý chuyên format biên bản họp cho công ty SEO/Marketing.
 
-def parse_structured(text):
-    """Parse JSON từ response của Claude."""
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if match:
-        try:
-            return json.loads(match.group())
-        except json.JSONDecodeError:
-            pass
+Thông tin buổi họp:
+- Client: {client}
+- Ngày: {date}
+- Tham dự: {attendees}
+
+Recap thô:
+{notes}
+
+Hãy hệ thống hoá và viết lại thành 2 phần rõ ràng, chuyên nghiệp bằng tiếng Việt:
+
+PHẦN 1: NỘI DUNG TRAO ĐỔI
+- Phân nhóm theo mảng công việc (GEO, CRO, SEO, Wireframe...)
+- Tóm tắt súc tích, rõ ràng từng mảng
+- Highlight các quyết định quan trọng và lưu ý cần nhớ
+- KHÔNG dùng @mention hay emoji trang trí
+
+PHẦN 2: NEXT STEPS
+Liệt kê dạng bảng với 3 cột: Công việc | PIC | Deadline
+- Trích xuất đầy đủ tất cả các task từ recap
+- PIC: ghi tên người thực hiện (nếu có)
+- Deadline: ghi ngày cụ thể (nếu có), nếu không ghi "Chưa xác định"
+
+Trả về JSON với cấu trúc:
+{{
+  "sections": [
+    {{
+      "title": "tên mảng",
+      "points": ["nội dung 1", "nội dung 2"]
+    }}
+  ],
+  "next_steps": [
+    {{"task": "tên công việc", "pic": "tên người", "deadline": "ngày"}}
+  ]
+}}"""
+
+    client_obj = anthropic.Anthropic(api_key=api_key)
+    response = client_obj.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    text = response.content[0].text.strip()
+    json_match = re.search(r"\{.*\}", text, re.DOTALL)
+    if json_match:
+        return json.loads(json_match.group())
     return None
 
 
-def format_with_claude(raw_notes, client, date, attendees, api_key):
-    """Dùng Claude để phân tích ghi chú thô → JSON có cấu trúc."""
-    prompt = f"""Bạn là trợ lý chuyên format biên bản họp cho công ty SEO.
+def parse_basic(notes):
+    """Parser cơ bản khi không có API key."""
+    sections = []
+    next_steps = []
 
-Ghi chú thô từ buổi họp:
----
-{raw_notes}
----
-
-Thông tin buổi họp:
-- Client / Dự án: {client}
-- Ngày họp: {date}
-- Thành phần tham dự: {attendees}
-
-Hãy phân tích ghi chú trên và trả về JSON theo đúng format sau (không giải thích thêm):
-{{
-  "tieu_de": "Biên bản họp - {client} - {date}",
-  "noi_dung_thao_luan": [
-    "Nội dung 1",
-    "Nội dung 2"
-  ],
-  "quyet_dinh": [
-    "Quyết định 1",
-    "Quyết định 2"
-  ],
-  "action_items": [
-    {{"noi_dung": "Việc cần làm", "pic": "Người phụ trách", "deadline": "DD/MM/YYYY"}},
-    {{"noi_dung": "Việc cần làm 2", "pic": "Người phụ trách", "deadline": "DD/MM/YYYY"}}
-  ],
-  "ghi_chu": "Ghi chú bổ sung nếu có (để trống nếu không có)"
-}}
-
-Lưu ý:
-- Nếu ghi chú không đề cập deadline cụ thể, ghi "Thỏa thuận"
-- Nếu không rõ PIC, ghi "Cần xác nhận"
-- Tóm tắt ngắn gọn, súc tích, dùng tiếng Việt"""
-
-    response = call_claude(prompt, api_key)
-    parsed = parse_structured(response)
-    if not parsed:
-        # Fallback: tạo cấu trúc mặc định
-        return {
-            "tieu_de": f"Biên bản họp - {client} - {date}",
-            "noi_dung_thao_luan": [raw_notes[:500]],
-            "quyet_dinh": ["Xem ghi chú đính kèm"],
-            "action_items": [{"noi_dung": "Xác nhận lại với team", "pic": "PM", "deadline": "Thỏa thuận"}],
-            "ghi_chu": "Ghi chú thô đính kèm bên dưới:\n" + raw_notes,
-        }
-    return parsed
-
-
-def format_manual(raw_notes, client, date, attendees):
-    """Fallback khi không có API key: tạo cấu trúc từ keyword đơn giản."""
-    lines = [l.strip() for l in raw_notes.strip().splitlines() if l.strip()]
-    action_items = []
-    discussion = []
-    decisions = []
-
-    action_keywords = ["deadline", "làm", "gửi", "hoàn thành", "chuẩn bị", "tạo", "viết", "check", "review"]
-    decision_keywords = ["chốt", "quyết định", "đồng ý", "thống nhất", "approved", "ok"]
-
-    for line in lines:
-        line_lower = line.lower()
-        if any(k in line_lower for k in decision_keywords):
-            decisions.append(line.lstrip("-•* "))
-        elif any(k in line_lower for k in action_keywords):
-            action_items.append({"noi_dung": line.lstrip("-•* "), "pic": "Cần xác nhận", "deadline": "Thỏa thuận"})
-        else:
-            discussion.append(line.lstrip("-•* "))
-
-    if not discussion:
-        discussion = ["Xem ghi chú chi tiết bên dưới"]
-    if not decisions:
-        decisions = ["Chưa có quyết định cụ thể"]
-    if not action_items:
-        action_items = [{"noi_dung": "Xác nhận lại action items với team", "pic": "PM", "deadline": "Thỏa thuận"}]
-
-    return {
-        "tieu_de": f"Biên bản họp - {client} - {date}",
-        "noi_dung_thao_luan": discussion,
-        "quyet_dinh": decisions,
-        "action_items": action_items,
-        "ghi_chu": "",
+    section_keywords = {
+        "GEO": ["geo", "generative", "prompt", "apac", "thị trường"],
+        "CRO": ["cro", "chuyển đổi", "conversion", "crm", "đo lường"],
+        "SEO / AIO": ["seo", "aio", "bài viết", "outline", "content", "cta"],
+        "Wireframe / Web": ["wireframe", "giao diện", "web", "blog", "thiết kế"],
     }
 
+    lines = [l.strip() for l in notes.split("\n") if l.strip()]
+    current_section = "Chung"
+    section_map = {current_section: []}
 
-def write_docx(data, client, date, attendees, out_path):
-    """Xuất biên bản họp ra file .docx."""
-    try:
-        from docx import Document
-        from docx.shared import Pt, RGBColor
-        from docx.enum.text import WD_ALIGN_PARAGRAPH
-    except ImportError:
-        raise SystemExit("[x] Thiếu thư viện python-docx. Chạy: pip3 install python-docx")
+    in_next = False
+    for line in lines:
+        line_clean = clean_text(line)
+        if not line_clean or len(line_clean) < 5:
+            continue
 
+        if re.search(r"next\s*step", line_clean, re.I):
+            in_next = True
+            continue
+
+        if in_next:
+            if line_clean and len(line_clean) > 5 and line_clean not in ["=="]:
+                deadline_match = re.search(r"(\d{1,2}/\d{1,2})", line_clean)
+                deadline = deadline_match.group(1) + "/2026" if deadline_match else "Chưa xác định"
+                pic_match = re.search(r"[-–]\s*(Thư|Huyền|Thắng|Ngân|Duyên|Kỹ thuật|PM)[\s,]", line_clean)
+                pic = pic_match.group(1).strip() if pic_match else "Chưa xác định"
+                task = re.sub(r"\s*[-–]\s*(Thư|Huyền|Thắng|Ngân|Duyên|Kỹ thuật|PM).*$", "", line_clean).strip()
+                task = re.sub(r"\d{1,2}/\d{1,2}.*$", "", task).strip(" -–")
+                if task and len(task) > 5:
+                    next_steps.append({"task": task, "pic": pic, "deadline": deadline})
+            continue
+
+        matched = False
+        for sec, kws in section_keywords.items():
+            if any(kw in line_clean.lower() for kw in kws):
+                if sec not in section_map:
+                    section_map[sec] = []
+                current_section = sec
+                matched = True
+                break
+
+        if line_clean not in ["=="]:
+            section_map.setdefault(current_section, []).append(line_clean)
+
+    for title, points in section_map.items():
+        filtered = [p for p in points if len(p) > 10 and p not in ["=="]]
+        if filtered:
+            sections.append({"title": title, "points": filtered})
+
+    return {"sections": sections, "next_steps": next_steps}
+
+
+def set_cell_bg(cell, hex_color):
+    tc = cell._tc
+    tcPr = tc.get_or_add_tcPr()
+    shd = OxmlElement("w:shd")
+    shd.set(qn("w:val"), "clear")
+    shd.set(qn("w:color"), "auto")
+    shd.set(qn("w:fill"), hex_color)
+    tcPr.append(shd)
+
+
+def build_docx(data, client, date, attendees, company, out_path):
     doc = Document()
 
+    style = doc.styles["Normal"]
+    style.font.name = "Arial"
+    style.font.size = Pt(11)
+
     # Tiêu đề
-    title = doc.add_heading(data["tieu_de"], 0)
+    title = doc.add_heading(f"BIÊN BẢN HỌP — {client.upper()}", level=1)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title.runs[0].font.color.rgb = RGBColor(0x1A, 0x73, 0xE8)
 
     # Thông tin chung
-    doc.add_heading("I. THÔNG TIN BUỔI HỌP", level=1)
-    info_table = doc.add_table(rows=3, cols=2)
-    info_table.style = "Table Grid"
-    cells = [
-        ("Ngày họp", date),
-        ("Client / Dự án", client),
-        ("Thành phần tham dự", attendees),
-    ]
-    for i, (label, value) in enumerate(cells):
-        info_table.rows[i].cells[0].text = label
-        info_table.rows[i].cells[1].text = value
-        run = info_table.rows[i].cells[0].paragraphs[0].runs[0]
-        run.bold = True
+    doc.add_paragraph(f"Ngày họp: {date}")
+    doc.add_paragraph(f"Thành phần: {attendees}")
+    doc.add_paragraph(f"Lập bởi: {company}")
+    doc.add_paragraph("")
 
-    doc.add_paragraph()
+    # PHẦN 1: Nội dung trao đổi
+    h1 = doc.add_heading("PHẦN 1: NỘI DUNG TRAO ĐỔI", level=2)
+    h1.runs[0].font.color.rgb = RGBColor(0x1A, 0x73, 0xE8)
 
-    # Nội dung thảo luận
-    doc.add_heading("II. NỘI DUNG THẢO LUẬN", level=1)
-    for i, item in enumerate(data["noi_dung_thao_luan"], 1):
-        doc.add_paragraph(f"{i}. {item}", style="List Number")
+    for section in data.get("sections", []):
+        if not section.get("points"):
+            continue
+        doc.add_heading(section["title"], level=3)
+        for point in section["points"]:
+            p = doc.add_paragraph(style="List Bullet")
+            p.add_run(point)
 
-    doc.add_paragraph()
+    doc.add_paragraph("")
 
-    # Quyết định
-    doc.add_heading("III. CÁC QUYẾT ĐỊNH ĐÃ CHỐT", level=1)
-    for item in data["quyet_dinh"]:
-        doc.add_paragraph(item, style="List Bullet")
+    # PHẦN 2: Next steps
+    h2 = doc.add_heading("PHẦN 2: NEXT STEPS", level=2)
+    h2.runs[0].font.color.rgb = RGBColor(0x1A, 0x73, 0xE8)
 
-    doc.add_paragraph()
+    next_steps = data.get("next_steps", [])
+    if next_steps:
+        table = doc.add_table(rows=1, cols=3)
+        table.style = "Table Grid"
 
-    # Action items table
-    doc.add_heading("IV. ACTION ITEMS", level=1)
-    action_table = doc.add_table(rows=1, cols=4)
-    action_table.style = "Table Grid"
-    headers = ["STT", "Nội dung công việc", "PIC", "Deadline"]
-    for i, h in enumerate(headers):
-        cell = action_table.rows[0].cells[i]
-        cell.text = h
-        cell.paragraphs[0].runs[0].bold = True
+        headers = ["Công việc", "PIC", "Deadline"]
+        hdr = table.rows[0]
+        for i, h in enumerate(headers):
+            cell = hdr.cells[i]
+            cell.text = h
+            set_cell_bg(cell, "1A73E8")
+            run = cell.paragraphs[0].runs[0]
+            run.font.bold = True
+            run.font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
-    for idx, item in enumerate(data["action_items"], 1):
-        row = action_table.add_row()
-        row.cells[0].text = str(idx)
-        row.cells[1].text = item.get("noi_dung", "")
-        row.cells[2].text = item.get("pic", "")
-        row.cells[3].text = item.get("deadline", "")
-
-    # Ghi chú
-    if data.get("ghi_chu"):
-        doc.add_paragraph()
-        doc.add_heading("V. GHI CHÚ BỔ SUNG", level=1)
-        doc.add_paragraph(data["ghi_chu"])
-
-    # Footer
-    doc.add_paragraph()
-    footer_para = doc.add_paragraph(
-        f"Biên bản được tạo tự động bởi Claude Code | {datetime.now().strftime('%d/%m/%Y %H:%M')}"
-    )
-    footer_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    footer_para.runs[0].font.size = Pt(9)
+        for item in next_steps:
+            row = table.add_row()
+            row.cells[0].text = item.get("task", "")
+            row.cells[1].text = item.get("pic", "")
+            row.cells[2].text = item.get("deadline", "")
+    else:
+        doc.add_paragraph("(Không có next steps trong recap)")
 
     os.makedirs(os.path.dirname(out_path) if os.path.dirname(out_path) else ".", exist_ok=True)
     doc.save(out_path)
-    return out_path
+
+    return len(data.get("sections", [])), len(next_steps)
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Format ghi chú họp → biên bản .docx")
-    ap.add_argument("--client", required=True, help="Tên client hoặc dự án")
-    ap.add_argument("--date", required=True, help="Ngày họp DD-MM-YYYY")
-    ap.add_argument("--attendees", required=True, help="Thành phần tham dự")
-    ap.add_argument("--notes", default="", help="Ghi chú thô (paste trực tiếp)")
-    ap.add_argument("--notes-file", help="File chứa ghi chú thô")
-    ap.add_argument("--out", default="bien-ban-hop.docx", help="File output .docx")
+    ap = argparse.ArgumentParser(description="Format recap họp thô → Google Docs")
+    ap.add_argument("--client", required=True)
+    ap.add_argument("--date", required=True)
+    ap.add_argument("--attendees", default="")
+    ap.add_argument("--notes", default="")
+    ap.add_argument("--notes-file", default="")
+    ap.add_argument("--out", required=True)
     args = ap.parse_args()
 
-    # Đọc ghi chú
-    raw_notes = args.notes
     if args.notes_file:
         with open(args.notes_file, "r", encoding="utf-8") as f:
-            raw_notes = f.read()
-    if not raw_notes.strip():
-        raise SystemExit("[x] Chưa có ghi chú. Dùng --notes hoặc --notes-file.")
+            notes = f.read()
+    else:
+        notes = args.notes
+
+    if not notes.strip():
+        sys.exit("[x] Không có nội dung recap. Dùng --notes hoặc --notes-file.")
 
     cfg = load_config()
     api_key = cfg.get("anthropic_api_key", "")
 
     print(f"[i] Client: {args.client} | Ngày: {args.date}")
-    print(f"[i] Thành phần: {args.attendees}")
 
+    data = None
     if api_key:
-        print("[i] Phân tích ghi chú bằng Claude AI...")
-        data = format_with_claude(raw_notes, args.client, args.date, args.attendees, api_key)
-    else:
-        print("[!] Không có API key → dùng parser cơ bản (thêm anthropic_api_key vào config.json để dùng AI)")
-        data = format_manual(raw_notes, args.client, args.date, args.attendees)
+        print("[i] Dùng Claude AI để phân tích...")
+        try:
+            data = parse_with_ai(notes, args.client, args.date, args.attendees, api_key)
+        except Exception as e:
+            print(f"[!] AI lỗi: {e} → dùng parser cơ bản")
+
+    if not data:
+        print("[i] Dùng parser cơ bản...")
+        data = parse_basic(notes)
 
     print("[i] Xuất file .docx...")
-    out_path = write_docx(data, args.client, args.date, args.attendees, args.out)
-
-    print(f"[✓] Đã tạo: {out_path}")
-    print(f"    → {len(data['noi_dung_thao_luan'])} nội dung thảo luận")
-    print(f"    → {len(data['quyet_dinh'])} quyết định")
-    print(f"    → {len(data['action_items'])} action items")
+    n_sections, n_steps = build_docx(
+        data, args.client, args.date, args.attendees,
+        cfg.get("company", "SEONGON"), args.out
+    )
+    print(f"[✓] Đã tạo: {args.out}")
+    print(f"    → {n_sections} mảng nội dung, {n_steps} next steps")
 
 
 if __name__ == "__main__":

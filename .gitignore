@@ -1,5 +1,7 @@
 # Credentials - KHÔNG commit lên GitHub
 **/config.json
+credentials.json
+token.json
 **/*credentials*.json
 **/*token*.json
 **/.env

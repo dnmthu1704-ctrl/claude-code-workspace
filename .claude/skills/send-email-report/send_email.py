@@ -63,9 +63,10 @@ Chi tiết đầy đủ được đính kèm trong file báo cáo. Anh/Chị vui
 Chúng tôi sẽ tiếp tục triển khai các kế hoạch đã đề ra trong tháng tới để duy trì và cải thiện kết quả.
 
 Trân trọng,
-{sender_name}
----
-Email này được gửi tự động bởi Claude Code."""
+Đặng Ngọc Minh Thư
+Account PM | {sender_name}
+📞 098.77.99.803
+✉️ dnmthu1704@gmail.com"""
 
     subject = f"[{sender_name}] Báo cáo SEO tháng {month} — {client}"
     return subject, body

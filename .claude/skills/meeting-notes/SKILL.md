@@ -1,69 +1,69 @@
 ---
 name: meeting-notes
-description: Chuyển ghi chú thô sau buổi họp → biên bản họp chuẩn có task, PIC và deadline. Kích hoạt khi user nói "format biên bản", "tạo biên bản họp", "meeting notes", hoặc paste ghi chú họp thô vào.
+description: Nhận recap thô sau buổi họp → hệ thống hoá, viết lại chuyên nghiệp → xuất Google Docs gồm 2 phần: Nội dung trao đổi + Next steps (công việc, PIC, deadline). Kích hoạt khi user paste recap họp thô vào.
 ---
 
 # Meeting Notes Formatter
 
-Skill này nhận ghi chú thô (bullet points, text rối) sau buổi họp → format thành biên bản họp
-chuyên nghiệp → xuất file .docx.
+Nhận recap thô → phân loại, viết lại → xuất Google Docs với 2 phần chuẩn.
 
 ## Bước 1 — Thu thập thông tin
 
-Nếu user chưa cung cấp, hỏi lần lượt:
+Nếu user đã paste recap, chỉ hỏi những gì còn thiếu:
 
-> Bạn cung cấp cho mình:
-> 1. Ghi chú thô của buổi họp (paste trực tiếp)
-> 2. Tên client / dự án
-> 3. Ngày họp (DD/MM/YYYY)
-> 4. Thành phần tham dự (tên + vai trò)
+- Tên client / dự án
+- Ngày họp (DD/MM/YYYY)
+- Thành phần tham dự (tên + vai trò)
 
-Nếu user đã paste ghi chú, chỉ hỏi những thông tin còn thiếu.
+## Bước 2 — Phân tích recap thô
 
-## Bước 2 — Phân tích ghi chú
+Đọc kỹ và phân loại thành 2 nhóm:
 
-Đọc kỹ ghi chú thô và phân loại thành 4 nhóm:
-- **Thông tin chung**: thời gian, địa điểm, thành phần
-- **Nội dung thảo luận**: các vấn đề đã bàn
-- **Quyết định**: các kết luận đã chốt
-- **Action items**: việc cần làm, ai làm, deadline
+**Phần 1 — Nội dung trao đổi**
+- Tóm tắt các vấn đề đã thảo luận theo từng mảng (GEO, CRO, SEO...)
+- Viết lại súc tích, rõ ràng, chuyên nghiệp
+- Bỏ các icon thừa (@mention, emoji trang trí)
+- Giữ các thông tin quan trọng: quyết định, lưu ý, rủi ro
+
+**Phần 2 — Next steps**
+- Liệt kê từng việc cần làm
+- Xác định PIC (người thực hiện)
+- Xác định Deadline
 
 ## Bước 3 — Chạy script
 
-```
-python3 ~/.claude/skills/meeting-notes/format_notes.py \
-  --client "<tên client>" \
-  --date "<DD-MM-YYYY>" \
-  --attendees "<người 1>, <người 2>" \
-  --notes "<ghi chú thô>" \
-  --out outputs/bien-ban-hop-<client>-<DD-MM-YYYY>.docx
-```
+Lưu recap thô vào file tạm rồi chạy:
 
-Nếu ghi chú thô dài, lưu vào file tạm trước:
 ```
-python3 ~/.claude/skills/meeting-notes/format_notes.py \
+python3 /Users/dnmthw/Downloads/claude-code-workspace/.claude/skills/meeting-notes/format_notes.py \
   --client "<tên client>" \
   --date "<DD-MM-YYYY>" \
-  --attendees "<người 1>, <người 2>" \
+  --attendees "<người 1 (vai trò), người 2 (vai trò)>" \
   --notes-file /tmp/notes.txt \
-  --out outputs/bien-ban-hop-<client>-<DD-MM-YYYY>.docx
+  --out /Users/dnmthw/Downloads/claude-code-workspace/outputs/recap-<client>-<DD-MM-YYYY>.docx
 ```
 
-## Bước 4 — Kiểm tra và báo kết quả
+Sau khi tạo .docx xong, upload lên Google Drive:
 
-Trước khi báo xong, kiểm tra:
-- [ ] File .docx đã tạo thành công (dùng `ls -lh` kiểm tra)
-- [ ] Có đủ 4 phần: thông tin chung, nội dung, quyết định, action items
-- [ ] Action items có đủ: Nội dung | PIC | Deadline
+```
+python3 /Users/dnmthw/Downloads/claude-code-workspace/drive_upload.py \
+  /Users/dnmthw/Downloads/claude-code-workspace/outputs/recap-<client>-<DD-MM-YYYY>.docx
+```
 
-Báo kết quả:
-> Đã tạo biên bản họp: `outputs/bien-ban-hop-<client>-<date>.docx`
-> Tóm tắt: X nội dung thảo luận, Y quyết định, Z action items.
+## Bước 4 — Trả kết quả
+
+Báo kết quả với:
+- Link Google Docs
+- Tóm tắt: X nội dung trao đổi, Y next steps
+
+Ví dụ:
+> Đã tạo recap: [Link Google Docs]
+> Gồm: 4 mảng nội dung trao đổi, 7 next steps có PIC và deadline.
 
 ## Lỗi thường gặp
 
-| Lỗi | Nguyên nhân | Cách xử lý |
-|-----|-------------|------------|
-| `ModuleNotFoundError: docx` | Chưa cài python-docx | Chạy `pip3 install python-docx` |
-| File rỗng | Ghi chú không có action items | Báo user bổ sung, không xuất file thiếu |
-| Encoding lỗi | Ký tự tiếng Việt | Script đã xử lý UTF-8, nếu vẫn lỗi thử `--notes-file` |
+| Lỗi | Cách xử lý |
+|-----|------------|
+| `ModuleNotFoundError: docx` | `pip3 install python-docx` |
+| Upload Drive lỗi auth | Xoá token.json và chạy lại |
+| Encoding lỗi tiếng Việt | Dùng `--notes-file` thay vì `--notes` |

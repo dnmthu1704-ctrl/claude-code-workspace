@@ -1,6 +1,13 @@
 # Claude Code Workspace — Đặng Ngọc Minh Thư
 
-Không gian làm việc cá nhân với Claude Code, xây dựng cho công việc Account PM tại SEONGON.
+Không gian làm việc cá nhân với Claude Code, xây dựng cho công việc Account PM tại SEONGON — nơi phần lớn thời gian mỗi tháng bị chiếm bởi 2 việc lặp lại: dựng báo cáo SEO gửi client và soạn biên bản/email sau mỗi buổi họp. Workspace này không thay tôi làm toàn bộ, mà đảm nhiệm phần tốn thời gian nhất (dựng khung, tính số liệu, soạn nháp) để tôi chỉ cần tập trung vào phần cần con người: review, tinh chỉnh nội dung, và quyết định gửi.
+
+**Hiệu quả thực tế sau khi áp dụng:**
+
+| Việc | Trước đây | Sau khi có agent | 
+|------|-----------|-------------------|
+| Làm slide báo cáo SEO tháng | ~2 ngày (tự tổng hợp số liệu, dựng từng slide, chèn bảng/biểu đồ tay) | **~3 tiếng** chỉnh sửa lại nội dung (`report-agent` tự đọc data, dựng slide + bảng + biểu đồ, tôi chỉ review và tinh chỉnh) |
+| Soạn & gửi email cho client | ~30 phút mỗi email (tự viết từ đầu, đúng văn phong, không sót thông tin) | **~10 phút** (`send-email-report`/`send-email-meeting` tự soạn nháp đúng văn phong SEONGON, tôi chỉ đọc duyệt rồi xác nhận gửi) |
 
 ## Cấu trúc
 

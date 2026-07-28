@@ -69,6 +69,21 @@ pip3 install python-docx openpyxl pandas google-api-python-client google-auth-ht
 - **Báo cáo SEO 07/2026**: [Google Slides](https://docs.google.com/presentation/d/18djhSeTBOYK4AwLE1WelD5EBRT1UuIpL_LNNBQDhs70/edit)
 - **Email gửi thành công**: dangngocminhthu@seongon.com (08/07/2026)
 
+## Quá trình vận dụng Claude Code
+
+Workspace này được xây dựng hoàn toàn qua các phiên làm việc trực tiếp với Claude Code, không viết tay từ đầu:
+
+1. **07/07/2026** — Khởi tạo 3 skill đầu tiên (`meeting-notes`, `monthly-report`, và một bản nháp `gsheet-to-report`). Sau khi thử, skill gửi báo cáo qua Google Sheet không sát nhu cầu thực tế (Account PM cần gửi **email** cho client, không phải chia sẻ sheet) → yêu cầu Claude Code đổi hướng, thay bằng `send-email-report` dùng Gmail SMTP + App Password (commit `e4ad5c5`).
+2. **07-08/07/2026** — Rebuild lại 3 skill với cấu trúc chuẩn (`SKILL.md` + script Python + `README.md` cho từng skill), thêm kết nối nền tảng ngoài thật (Google Drive/Slides API, Gmail SMTP) thay vì chỉ chạy nội bộ. Toàn bộ phiên làm việc này được export bằng lệnh `/export` của Claude Code và lưu tại [`chat-history/btvn-buoi-3-chat-history.jsonl`](chat-history/btvn-buoi-3-chat-history.jsonl).
+3. **09/07/2026** — Nhận ra 4 skill lẻ vẫn cần gọi thủ công từng bước → yêu cầu Claude Code gói lại thành 2 **sub-agent** (`report-agent`, `meeting-agent`), mỗi agent tự nhận diện nhiệm vụ và chạy đủ chuỗi "tạo nội dung → soạn & gửi email" cho một task duy nhất (commit `f0fbb9a`). Cùng phiên đó, sửa lỗi parser của `meeting-notes`/`send-email` và nâng `monthly-report` từ chỉ có bullet point lên có bảng dữ liệu thật + biểu đồ (pie/bar chart) chèn trực tiếp vào Slides (commit `9746781`).
+
+Cách vận dụng xuyên suốt: **giao việc bằng ngôn ngữ tự nhiên, không chỉ định từng bước** (vd: *"Tạo báo cáo SEO tháng 07 cho TMA Solutions và gửi cho client"*) — Claude Code tự đọc `SKILL.md`/agent definition tương ứng, tự chạy script, tự dừng lại xin xác nhận trước khi gửi email thật.
+
+## Demo
+
+- Sản phẩm đầu ra thật đã tạo bằng skill: xem mục **Output mẫu** ở trên (link Google Docs/Slides + email đã gửi) và các file trong [`outputs/`](outputs/).
+- Ảnh/video chụp màn hình quá trình chạy skill: *(xem link đính kèm khi nộp bài / bổ sung tại đây)*.
+
 ## Ghi chú bảo mật
 
 `credentials.json`, `token.json`, và `config.json` được gitignore — không bao giờ commit lên GitHub.

@@ -69,6 +69,10 @@ pip3 install python-docx openpyxl pandas google-api-python-client google-auth-ht
 - **Báo cáo SEO 07/2026**: [Google Slides](https://docs.google.com/presentation/d/18djhSeTBOYK4AwLE1WelD5EBRT1UuIpL_LNNBQDhs70/edit)
 - **Email gửi thành công**: dangngocminhthu@seongon.com (08/07/2026)
 
+## Slide trình bày
+
+[`docs/2-agent-claude-code-account-pm-seongon.pptx`](docs/2-agent-claude-code-account-pm-seongon.pptx) — giới thiệu 2 agent, cách chúng hoạt động, và minh chứng đã áp dụng vào công việc thật.
+
 ## Quá trình vận dụng Claude Code
 
 Workspace này được xây dựng hoàn toàn qua các phiên làm việc trực tiếp với Claude Code, không viết tay từ đầu:

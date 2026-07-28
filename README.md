@@ -81,8 +81,17 @@ Cách vận dụng xuyên suốt: **giao việc bằng ngôn ngữ tự nhiên, 
 
 ## Demo
 
-- Sản phẩm đầu ra thật đã tạo bằng skill: xem mục **Output mẫu** ở trên (link Google Docs/Slides + email đã gửi) và các file trong [`outputs/`](outputs/).
-- Ảnh/video chụp màn hình quá trình chạy skill: *(xem link đính kèm khi nộp bài / bổ sung tại đây)*.
+Sản phẩm đầu ra thật đã tạo bằng skill: xem mục **Output mẫu** ở trên (link Google Docs/Slides + email đã gửi) và các file trong [`outputs/`](outputs/).
+
+**Ảnh chụp thật:**
+
+Google Slides báo cáo tháng (tạo bằng `monthly-report`, deck test kết nối API — số liệu Ranking hiển thị N/A vì chạy với data giả để test luồng, cấu trúc slide/bảng/chart tạo tự động qua Slides API là thật):
+
+![Demo Slides](outputs/demo/demo-slides.png)
+
+Email báo cáo gửi thành công qua Gmail SMTP (tạo + gửi bằng `send-email-report`):
+
+![Demo Email](outputs/demo/demo-email.png)
 
 ## Ghi chú bảo mật
 
